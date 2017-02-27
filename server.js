@@ -161,10 +161,7 @@ function onRequestUpdate(data, isNotification) {
 	}
 	console.log(requestOptions);
 	var httpData;
-	//Works with JSON
-	//NOT BIT.LY LINKS.
-	//They need to be expanded out.
-	//This requires restructuring of flow of program to stack the two HTTP requests needed.
+	
 	if(requestOptions.host === 'bit.ly') {
 		makeBitlyRequest(requestOptions);
 	} else {
@@ -175,7 +172,6 @@ function onRequestUpdate(data, isNotification) {
 function connectService(peripheral) {
 	noble.stopScanning();
 	peripheral.connect(function deviceConnect(error) {
-		//console.log('connected');
 		peripheral.discoverServices(serviceUUID, function accessServivces(error, services) {
 			if(checkMicroBit(services)) {
 				console.log('Connected to Micro:bit with HTTP Service');
@@ -196,16 +192,6 @@ function connectService(peripheral) {
 					requestCharacteristic.read(readRequestCharacteristic);
 					requestCharacteristic.on('read', onRequestUpdate);
 					requestCharacteristic.notify(true, function(error){});
-					
-					/*for (var i in characteristics) {
-						console.log(characteristics[i].uuid);
-						characteristics[i].read(function(error, data) {
-							console.log('+' + data.toString('utf8') + '+');
-							
-						});
-						
-					}*/
-
 				});
 			} else {
 				console.log('Connected to unknown device, disconnecting');
