@@ -26,7 +26,6 @@ function checkMicroBit(services) {
 	if(services === undefined) {
 		return false;
 	}
-	console.log(services);
 	
 	if(services[0] === undefined) {
 		return false;
@@ -47,7 +46,7 @@ function readRequestCharacteristic(error, data) {
 }
 
 function onUrlUpdate(data, isNotification) {
-	console.log('URL Updated');
+	console.log('URL Updated:' + data);
 	storedUrl = data.toString('utf8');
 }
 
@@ -70,26 +69,34 @@ function parseURL(url) {
 	}*/
 	
 	var urlDoc = urlLib.parse(preParseUrl);
-	//Here we should check for bit.ly link and expand it.
+	console.log(urlDoc.hostname + urlDoc.path);
 	
-	
-	
-	return [urlDoc.hostname, urlDoc.pathname, urlDoc.port];
+	return [urlDoc.hostname, urlDoc.path.replace(/&amp;/g, '&'), urlDoc.port];
+}
+
+function retrieveFieldData(obj, parseParams) {
+	if(parseParams.length <= 1) {
+		return obj[parseParams[0]];
+	} else {
+		var newObj = obj[parseParams[0]]
+		parseParams.shift();
+		return retrieveFieldData(newObj, parseParams);
+	}
 }
 
 function parseSendData(httpData, parseParam) {
 	if(httpData.substring(0,9) === 'undefined') {
 		httpData = httpData.substring(9);
-		console.log(httpData);
 	}
 	var obj = JSON.parse(httpData);
-	var fieldData = obj[parseParam];
+	var splitParams = parseParam.split(".");
+	var fieldData = retrieveFieldData(obj, splitParams);
+	//var fieldData = obj[parseParam];
 	responseCharacteristic.write(Buffer.from(fieldData), true, function(error){});
 }
 
 function parseBitly(httpData) {
 	var wipUrl = httpData.split('\"')
-	console.log(wipUrl[1]);
 	return wipUrl[1];
 }
 
@@ -101,16 +108,12 @@ function makeBitlyRequest(requestOptions) {
 		});
 		
 		response.on('end', function gotData() {
-			console.log(httpData);
-			
 			var expandedUrl = parseBitly(httpData);
 			var rawOptions = parseURL(expandedUrl);
 			var newRequestOptions = {
 				host:rawOptions[0], 
 				path:rawOptions[1], 
 				port: 80,
-				type: '',
-				headers: undefined
 			};
 			makeRequest(newRequestOptions);
 			//Here's where we'll return the data to the Micro:bit
@@ -119,6 +122,7 @@ function makeBitlyRequest(requestOptions) {
 }
 
 function makeRequest(requestOptions) {
+	console.log(requestOptions.path);
 	var httpData;
 	http.request(requestOptions, function(response) {
 		response.on('data', function receiveData(httpChunk) {
@@ -126,7 +130,10 @@ function makeRequest(requestOptions) {
 		});
 		
 		response.on('end', function gotData() {
-			console.log(httpData);
+			if(httpData == undefined) {
+				console.log("Retrieval of JSON failed");
+				return;
+			}
 			parseParam = storedRequest.substring(1);
 			parseSendData(httpData, parseParam);
 			//Here's where we'll return the data to the Micro:bit
@@ -143,8 +150,6 @@ function onRequestUpdate(data, isNotification) {
 		host:rawOptions[0], 
 		path:rawOptions[1], 
 		port: 80,
-		type: '',
-		headers: undefined
 	};
 	
 	var requestType = storedRequest.substring(0,1);
@@ -159,7 +164,6 @@ function onRequestUpdate(data, isNotification) {
 		case 'D':
 			break;
 	}
-	console.log(requestOptions);
 	var httpData;
 	
 	if(requestOptions.host === 'bit.ly') {
