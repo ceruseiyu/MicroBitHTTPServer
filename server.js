@@ -14,29 +14,6 @@ var responseCharacteristic;
 var storedURL = '';
 var storedRequest = '';
 
-function startScan(state) {
-	if(state === 'poweredOn') {
-		noble.startScanning();
-	} else {
-		noble.stopScanning();
-	}
-}
-
-function checkMicroBit(services) {
-	if(services === undefined) {
-		return false;
-	}
-	
-	if(services[0] === undefined) {
-		return false;
-	}
-	
-	if(services[0].uuid === serviceUUID) {
-		return true;
-	}
-	return false;
-}
-
 function readUrlCharacteristic(error, data) {
 	storedURL = data.toString('utf8');
 };
@@ -57,46 +34,54 @@ function parseURL(url) {
 	} else{
 		preParseUrl = url;
 	}
-	/*var flag = false;
-	for(var i = 6; i < preParseUrl.length; i++) {
-		if(preParseUrl.charAt(i) == ':') {
-			flag = true;
-			break;
-		}
-	}
-	if(flag == true) {
-		preParseUrl = preParseUrl + ':80';
-	}*/
-	
 	var urlDoc = urlLib.parse(preParseUrl);
-	console.log(urlDoc.hostname + urlDoc.path);
 	
-	return [urlDoc.hostname, urlDoc.path.replace(/&amp;/g, '&'), urlDoc.port];
+	return [urlDoc.hostname, urlDoc.path.replace(/&amp;/g, '&')];
 }
 
+function getArrayData(obj, param) {
+	var splitParam = param.split('[');
+	var indexString = splitParam[1].substring(0, splitParam[1].length - 1);
+	var array = obj[splitParam[0]];
+	return array[parseInt(indexString)];
+}
+
+//Recursively locate nested object given list of object IDs
 function retrieveFieldData(obj, parseParams) {
+	var newObj;
 	if(parseParams.length <= 1) {
+		if(parseParams[0].charAt(parseParams[0].length - 1) === ']') {
+			return getArrayData(obj, parseParams[0]);
+		}
 		return obj[parseParams[0]];
 	} else {
-		var newObj = obj[parseParams[0]]
+		newObj = obj[parseParams[0]];
 		parseParams.shift();
 		return retrieveFieldData(newObj, parseParams);
 	}
 }
 
 function parseSendData(httpData, parseParam) {
-	if(httpData.substring(0,9) === 'undefined') {
+	if(httpData.substring(0,9) === "undefined") {
 		httpData = httpData.substring(9);
 	}
-	var obj = JSON.parse(httpData);
+	var obj;
+	try{
+		obj = JSON.parse(httpData);
+	} catch(err) {
+		console.log("Unable to parse JSON. Is requested file valid JSON?");
+		return;
+	}
+	obj = JSON.parse(httpData);
 	var splitParams = parseParam.split(".");
 	var fieldData = retrieveFieldData(obj, splitParams);
-	//var fieldData = obj[parseParam];
+	console.log(fieldData);
 	responseCharacteristic.write(Buffer.from(fieldData), true, function(error){});
 }
 
 function parseBitly(httpData) {
 	var wipUrl = httpData.split('\"')
+	console.log("Expanded bitly url to " + wipUrl[1]);
 	return wipUrl[1];
 }
 
@@ -116,13 +101,11 @@ function makeBitlyRequest(requestOptions) {
 				port: 80,
 			};
 			makeRequest(newRequestOptions);
-			//Here's where we'll return the data to the Micro:bit
 		});
 	}).end();
 }
 
 function makeRequest(requestOptions) {
-	console.log(requestOptions.path);
 	var httpData;
 	http.request(requestOptions, function(response) {
 		response.on('data', function receiveData(httpChunk) {
@@ -158,10 +141,13 @@ function onRequestUpdate(data, isNotification) {
 			requestOptions.type = 'GET';
 			break;
 		case 'P':
+			requestOptions.type = 'POST';
 			break;
 		case 'p':
+			requestOptions.type = 'PUT';
 			break;
 		case 'D':
+			requestOptions.type = 'DELETE';
 			break;
 	}
 	var httpData;
@@ -171,6 +157,21 @@ function onRequestUpdate(data, isNotification) {
 	} else {
 		makeRequest(options);
 	}
+}
+
+function checkMicroBit(services) {
+	if(services === undefined) {
+		return false;
+	}
+	
+	if(services[0] === undefined) {
+		return false;
+	}
+	
+	if(services[0].uuid === serviceUUID) {
+		return true;
+	}
+	return false;
 }
 
 function connectService(peripheral) {
@@ -192,7 +193,6 @@ function connectService(peripheral) {
 					urlCharacteristic.on('read', onUrlUpdate);
 					urlCharacteristic.notify(true, function(error){});
 					
-					
 					requestCharacteristic.read(readRequestCharacteristic);
 					requestCharacteristic.on('read', onRequestUpdate);
 					requestCharacteristic.notify(true, function(error){});
@@ -206,6 +206,13 @@ function connectService(peripheral) {
 	});
 }
 	
+function startScan(state) {
+	if(state === 'poweredOn') {
+		noble.startScanning();
+	} else {
+		noble.stopScanning();
+	}
+}
 
 noble.on('stateChange', startScan);
 noble.on('discover', connectService);
