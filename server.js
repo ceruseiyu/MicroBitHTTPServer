@@ -2,10 +2,10 @@ var noble = require('noble');
 var http = require('http');
 var urlLib = require('url');
 
-var serviceUUID = '1351634a09d1484699b9ee3112c3f55b';
-var urlCharacteristicUUID = '13513f0209d1484699b9ee3112c3f55b';
-var requestCharacteristicUUID = '1351149e09d1484699b9ee3112c3f55b';
-var responseCharacteristicUUID = '1351578009d1484699b9ee3112c3f55b';
+const serviceUUID = '1351634a09d1484699b9ee3112c3f55b';
+const urlCharacteristicUUID = '13513f0209d1484699b9ee3112c3f55b';
+const requestCharacteristicUUID = '1351149e09d1484699b9ee3112c3f55b';
+const responseCharacteristicUUID = '1351578009d1484699b9ee3112c3f55b';
 
 var urlCharacteristic;
 var requestCharacteristic;
@@ -13,6 +13,20 @@ var responseCharacteristic;
 
 var storedURL = '';
 var storedRequest = '';
+
+var macroArray = [];
+
+const exampleMacro = {
+	macroID: 0x01,
+	host: undefined,
+	path: undefined;
+	type: 'GET',
+	port: undefined,
+	postData: undefined,
+	runMacro: function(data) {
+		return 'Success';
+	}
+}
 
 function readUrlCharacteristic(error, data) {
 	storedURL = data.toString('utf8');
@@ -124,10 +138,48 @@ function makeRequest(requestOptions) {
 	}).end();
 }
 
+function addMacro(macro) {
+	macroArray.push(macro);
+}
+
+function findMacro(macroID) {
+	for(var i = 0; i < macroArray.length; i++) {
+		if(macroArray[i].macroID === macroID) {
+			return macroArray[i];
+		}
+	}
+	return undefined;
+}
+
+function runMacro(macroID, param, options) {
+	var macro = findMacro(macroID);
+	if(macro === undefined) {
+		console.log('Macro of ID ' + macroID + ' was not found!');
+		return;
+	}
+
+	if(macro.host !== undefined) {
+		options.host = macro.host;
+	}
+	if(macro.path !== undefined) {
+		options.path = macro.path;
+	}
+	if(macro.port !== undefined) {
+		options.port = macro.port;
+	}
+	
+	if(macro.type === undefined) {
+		console.log('No HTTP Request type set for macro');
+		return;
+	}
+	options.type = macro.type;
+
+}
+
 function onRequestUpdate(data, isNotification) {
 	console.log('Request Received');
 	storedRequest = data.toString('utf8');
-
+	console.log(storedRequest);
 	var rawOptions = parseURL(storedUrl);
 	var requestOptions = {
 		host:rawOptions[0], 
@@ -149,13 +201,18 @@ function onRequestUpdate(data, isNotification) {
 		case 'D':
 			requestOptions.type = 'DELETE';
 			break;
+		case 'M':
+			runMacro(data[1], storedRequest.substring(1, storedRequest.length), requestOptions);
+			return;
+		default:
+			console.log('Request identifier not recognised!');
 	}
 	var httpData;
 	
 	if(requestOptions.host === 'bit.ly') {
 		makeBitlyRequest(requestOptions);
 	} else {
-		makeRequest(options);
+		makeRequest(requestOptions);
 	}
 }
 
@@ -213,6 +270,8 @@ function startScan(state) {
 		noble.stopScanning();
 	}
 }
+
+addMacro(exampleMacro);
 
 noble.on('stateChange', startScan);
 noble.on('discover', connectService);
