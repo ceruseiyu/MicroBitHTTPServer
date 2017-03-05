@@ -1,6 +1,8 @@
 var noble = require('noble');
 var http = require('http');
-var urlLib = require('url');
+//var urlLib = require('url');
+
+var parser = require('./parser');
 
 const serviceUUID = '1351634a09d1484699b9ee3112c3f55b';
 const urlCharacteristicUUID = '13513f0209d1484699b9ee3112c3f55b';
@@ -19,7 +21,7 @@ var macroArray = [];
 const exampleMacro = {
 	macroID: 0x01,
 	host: undefined,
-	path: undefined;
+	path: undefined,
 	type: 'GET',
 	port: undefined,
 	postData: undefined,
@@ -41,7 +43,7 @@ function onUrlUpdate(data, isNotification) {
 	storedUrl = data.toString('utf8');
 }
 
-function parseURL(url) {
+/*function parseURL(url) {
 	var preParseUrl;
 	if(url.substring(0, 4) != "http") {
 		preParseUrl = 'http://' + url;
@@ -51,17 +53,17 @@ function parseURL(url) {
 	var urlDoc = urlLib.parse(preParseUrl);
 	
 	return [urlDoc.hostname, urlDoc.path.replace(/&amp;/g, '&')];
-}
+}*/
 
-function getArrayData(obj, param) {
+/*function getArrayData(obj, param) {
 	var splitParam = param.split('[');
 	var indexString = splitParam[1].substring(0, splitParam[1].length - 1);
 	var array = obj[splitParam[0]];
 	return array[parseInt(indexString)];
-}
+}*/
 
 //Recursively locate nested object given list of object IDs
-function retrieveFieldData(obj, parseParams) {
+/*function retrieveFieldData(obj, parseParams) {
 	var newObj;
 	if(parseParams.length <= 1) {
 		if(parseParams[0].charAt(parseParams[0].length - 1) === ']') {
@@ -73,7 +75,7 @@ function retrieveFieldData(obj, parseParams) {
 		parseParams.shift();
 		return retrieveFieldData(newObj, parseParams);
 	}
-}
+}*/
 
 function parseSendData(httpData, parseParam) {
 	if(httpData.substring(0,9) === "undefined") {
@@ -84,20 +86,22 @@ function parseSendData(httpData, parseParam) {
 		obj = JSON.parse(httpData);
 	} catch(err) {
 		console.log("Unable to parse JSON. Is requested file valid JSON?");
+		console.log(httpData);
 		return;
 	}
 	obj = JSON.parse(httpData);
 	var splitParams = parseParam.split(".");
-	var fieldData = retrieveFieldData(obj, splitParams);
+	var fieldData = parser.retrieveFieldData(obj, splitParams);
 	console.log(fieldData);
 	responseCharacteristic.write(Buffer.from(fieldData), true, function(error){});
 }
 
-function parseBitly(httpData) {
+
+/*function parseBitly(httpData) {
 	var wipUrl = httpData.split('\"')
 	console.log("Expanded bitly url to " + wipUrl[1]);
 	return wipUrl[1];
-}
+}*/
 
 function makeBitlyRequest(requestOptions) {
 	var httpData;
@@ -107,8 +111,8 @@ function makeBitlyRequest(requestOptions) {
 		});
 		
 		response.on('end', function gotData() {
-			var expandedUrl = parseBitly(httpData);
-			var rawOptions = parseURL(expandedUrl);
+			var expandedUrl = parser.parseBitly(httpData);
+			var rawOptions = parser.parseURL(expandedUrl);
 			var newRequestOptions = {
 				host:rawOptions[0], 
 				path:rawOptions[1], 
@@ -180,7 +184,7 @@ function onRequestUpdate(data, isNotification) {
 	console.log('Request Received');
 	storedRequest = data.toString('utf8');
 	console.log(storedRequest);
-	var rawOptions = parseURL(storedUrl);
+	var rawOptions = parser.parseURL(storedUrl);
 	var requestOptions = {
 		host:rawOptions[0], 
 		path:rawOptions[1], 
