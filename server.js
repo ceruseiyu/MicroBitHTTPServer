@@ -43,40 +43,6 @@ function onUrlUpdate(data, isNotification) {
 	storedUrl = data.toString('utf8');
 }
 
-/*function parseURL(url) {
-	var preParseUrl;
-	if(url.substring(0, 4) != "http") {
-		preParseUrl = 'http://' + url;
-	} else{
-		preParseUrl = url;
-	}
-	var urlDoc = urlLib.parse(preParseUrl);
-	
-	return [urlDoc.hostname, urlDoc.path.replace(/&amp;/g, '&')];
-}*/
-
-/*function getArrayData(obj, param) {
-	var splitParam = param.split('[');
-	var indexString = splitParam[1].substring(0, splitParam[1].length - 1);
-	var array = obj[splitParam[0]];
-	return array[parseInt(indexString)];
-}*/
-
-//Recursively locate nested object given list of object IDs
-/*function retrieveFieldData(obj, parseParams) {
-	var newObj;
-	if(parseParams.length <= 1) {
-		if(parseParams[0].charAt(parseParams[0].length - 1) === ']') {
-			return getArrayData(obj, parseParams[0]);
-		}
-		return obj[parseParams[0]];
-	} else {
-		newObj = obj[parseParams[0]];
-		parseParams.shift();
-		return retrieveFieldData(newObj, parseParams);
-	}
-}*/
-
 function parseSendData(httpData, parseParam) {
 	if(httpData.substring(0,9) === "undefined") {
 		httpData = httpData.substring(9);
@@ -96,13 +62,6 @@ function parseSendData(httpData, parseParam) {
 	responseCharacteristic.write(Buffer.from(fieldData), true, function(error){});
 }
 
-
-/*function parseBitly(httpData) {
-	var wipUrl = httpData.split('\"')
-	console.log("Expanded bitly url to " + wipUrl[1]);
-	return wipUrl[1];
-}*/
-
 function makeBitlyRequest(requestOptions) {
 	var httpData;
 	http.request(requestOptions, function(response) {
@@ -113,11 +72,9 @@ function makeBitlyRequest(requestOptions) {
 		response.on('end', function gotData() {
 			var expandedUrl = parser.parseBitly(httpData);
 			var rawOptions = parser.parseURL(expandedUrl);
-			var newRequestOptions = {
-				host:rawOptions[0], 
-				path:rawOptions[1], 
-				port: 80,
-			};
+			var newRequestOptions = requestOptions;
+			newRequestOptions.host = rawOptions[0];
+			newRequestOptions.path = rawOptions[1];
 			makeRequest(newRequestOptions);
 		});
 	}).end();
@@ -137,7 +94,6 @@ function makeRequest(requestOptions) {
 			}
 			parseParam = storedRequest.substring(1);
 			parseSendData(httpData, parseParam);
-			//Here's where we'll return the data to the Micro:bit
 		});
 	}).end();
 }
@@ -153,6 +109,47 @@ function findMacro(macroID) {
 		}
 	}
 	return undefined;
+}
+
+function macroBitlyRequest(requestOptions, macro) {
+	var httpData;
+	http.request(requestOptions, function(response) {
+		response.on('data', function receiveData(httpChunk) {
+			httpData += httpChunk;
+		});
+		
+		response.on('end', function gotData() {
+			var expandedUrl = parser.parseBitly(httpData);
+			var rawOptions = parser.parseURL(expandedUrl);
+			
+			var newRequestOptions = requestOptions;
+			newRequestOptions.host = rawOptions[0];
+			newRequestOptions.path = rawOptions[1];
+			
+			macroRequest(newRequestOptions, macro);
+		});
+	}).end();
+}
+
+function macroRequest(requestOptions, macro) {
+	var httpData;
+	http.request(requestOptions, function(response) {
+		response.on('data', function receiveData(httpChunk) {
+			httpData += httpChunk;
+		});
+		
+		response.on('end', function gotData() {
+			if(httpData == undefined) {
+				console.log("Retrieval of JSON failed");
+				return;
+			}
+			if(httpData.substring(0,9) === "undefined") {
+				httpData = httpData.substring(9);
+			}
+			var responseData = macro.runMacro(httpData);
+			responseCharacteristic.write(Buffer.from(responseData), true, function(error){});
+		});
+	}).end();
 }
 
 function runMacro(macroID, param, options) {
@@ -177,6 +174,12 @@ function runMacro(macroID, param, options) {
 		return;
 	}
 	options.type = macro.type;
+	
+	if(options.host === 'bit.ly') {
+		macroBitlyRequest(options, macro);
+	} else {
+		macroRequest(options, macro);
+	}
 
 }
 
