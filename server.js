@@ -3,6 +3,7 @@ var http = require('http');
 //var urlLib = require('url');
 
 var parser = require('./parser');
+var macro = require('./macro');
 
 const serviceUUID = '1351634a09d1484699b9ee3112c3f55b';
 const urlCharacteristicUUID = '13513f0209d1484699b9ee3112c3f55b';
@@ -98,91 +99,6 @@ function makeRequest(requestOptions) {
 	}).end();
 }
 
-function addMacro(macro) {
-	macroArray.push(macro);
-}
-
-function findMacro(macroID) {
-	for(var i = 0; i < macroArray.length; i++) {
-		if(macroArray[i].macroID === macroID) {
-			return macroArray[i];
-		}
-	}
-	return undefined;
-}
-
-function macroBitlyRequest(requestOptions, macro) {
-	var httpData;
-	http.request(requestOptions, function(response) {
-		response.on('data', function receiveData(httpChunk) {
-			httpData += httpChunk;
-		});
-		
-		response.on('end', function gotData() {
-			var expandedUrl = parser.parseBitly(httpData);
-			var rawOptions = parser.parseURL(expandedUrl);
-			
-			var newRequestOptions = requestOptions;
-			newRequestOptions.host = rawOptions[0];
-			newRequestOptions.path = rawOptions[1];
-			
-			macroRequest(newRequestOptions, macro);
-		});
-	}).end();
-}
-
-function macroRequest(requestOptions, macro) {
-	var httpData;
-	http.request(requestOptions, function(response) {
-		response.on('data', function receiveData(httpChunk) {
-			httpData += httpChunk;
-		});
-		
-		response.on('end', function gotData() {
-			if(httpData == undefined) {
-				console.log("Retrieval of JSON failed");
-				return;
-			}
-			if(httpData.substring(0,9) === "undefined") {
-				httpData = httpData.substring(9);
-			}
-			var responseData = macro.runMacro(httpData);
-			responseCharacteristic.write(Buffer.from(responseData), true, function(error){});
-		});
-	}).end();
-}
-
-function runMacro(macroID, param, options) {
-	var macro = findMacro(macroID);
-	if(macro === undefined) {
-		console.log('Macro of ID ' + macroID + ' was not found!');
-		return;
-	}
-
-	if(macro.host !== undefined) {
-		options.host = macro.host;
-	}
-	if(macro.path !== undefined) {
-		options.path = macro.path;
-	}
-	if(macro.port !== undefined) {
-		options.port = macro.port;
-	}
-	
-	if(macro.type === undefined) {
-		console.log('No HTTP Request type set for macro');
-		return;
-	}
-	options.type = macro.type;
-	
-	if(options.host === 'bit.ly') {
-		macroBitlyRequest(options, macro);
-	} else {
-		macroRequest(options, macro);
-	}
-
-}
-
 function onRequestUpdate(data, isNotification) {
 	console.log('Request Received');
 	storedRequest = data.toString('utf8');
@@ -209,7 +125,8 @@ function onRequestUpdate(data, isNotification) {
 			requestOptions.type = 'DELETE';
 			break;
 		case 'M':
-			runMacro(data[1], storedRequest.substring(1, storedRequest.length), requestOptions);
+			macro.setResponseCharacteristic(responseCharacteristic);
+			macro.runMacro(data[1], storedRequest.substring(1, storedRequest.length), requestOptions);
 			return;
 		default:
 			console.log('Request identifier not recognised!');
@@ -278,7 +195,7 @@ function startScan(state) {
 	}
 }
 
-addMacro(exampleMacro);
+macro.addMacro(exampleMacro);
 
 noble.on('stateChange', startScan);
 noble.on('discover', connectService);
