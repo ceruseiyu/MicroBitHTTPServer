@@ -9,6 +9,7 @@ const serviceUUID = '1351634a09d1484699b9ee3112c3f55b';
 const urlCharacteristicUUID = '13513f0209d1484699b9ee3112c3f55b';
 const requestCharacteristicUUID = '1351149e09d1484699b9ee3112c3f55b';
 const responseCharacteristicUUID = '1351578009d1484699b9ee3112c3f55b';
+const postDataCharacteristicUUID = '13514c6f09d1484699b9ee3112c3f55b';
 
 var urlCharacteristic;
 var requestCharacteristic;
@@ -16,6 +17,7 @@ var responseCharacteristic;
 
 var storedURL = '';
 var storedRequest = '';
+var storedPostData = '';
 
 var macroArray = [];
 
@@ -39,9 +41,8 @@ function readRequestCharacteristic(error, data) {
 	storedRequest = data.toString('utf8');
 }
 
-function onUrlUpdate(data, isNotification) {
-	console.log('URL Updated:' + data);
-	storedUrl = data.toString('utf8');
+function readPostDataCharacteristic(error, data) {
+	storedPostData = data.toString('utf8');
 }
 
 function parseSendData(httpData, parseParam) {
@@ -83,7 +84,7 @@ function makeBitlyRequest(requestOptions) {
 
 function makeRequest(requestOptions) {
 	var httpData;
-	http.request(requestOptions, function(response) {
+	var request = http.request(requestOptions, function(response) {
 		response.on('data', function receiveData(httpChunk) {
 			httpData += httpChunk;
 		});
@@ -96,7 +97,13 @@ function makeRequest(requestOptions) {
 			parseParam = storedRequest.substring(1);
 			parseSendData(httpData, parseParam);
 		});
-	}).end();
+	});
+	
+	if(requestOptions.postData !== undefined) {
+		request.write(postData);
+	}
+	
+	request.end();
 }
 
 function onRequestUpdate(data, isNotification) {
@@ -117,6 +124,10 @@ function onRequestUpdate(data, isNotification) {
 			break;
 		case 'P':
 			requestOptions.type = 'POST';
+			requestOptions.postData = storedPostData;
+			requestOptions.headers = {
+				'Content-Type': 'application/x-www-form-urlencoded'
+			}
 			break;
 		case 'p':
 			requestOptions.type = 'PUT';
@@ -130,6 +141,7 @@ function onRequestUpdate(data, isNotification) {
 			return;
 		default:
 			console.log('Request identifier not recognised!');
+			return;
 	}
 	var httpData;
 	
@@ -138,6 +150,16 @@ function onRequestUpdate(data, isNotification) {
 	} else {
 		makeRequest(requestOptions);
 	}
+}
+
+function onUrlUpdate(data, isNotification) {
+	console.log('URL Updated: ' + data);
+	storedUrl = data.toString('utf8');
+}
+
+function onPostDataUpdate(data, isNotification) {
+	console.log('Post data updated: ' + data);
+	storedPostData = data.toString('utf8');
 }
 
 function checkMicroBit(services) {
@@ -158,17 +180,23 @@ function checkMicroBit(services) {
 function connectService(peripheral) {
 	noble.stopScanning();
 	peripheral.connect(function deviceConnect(error) {
-		peripheral.discoverServices(serviceUUID, function accessServivces(error, services) {
+		peripheral.discoverServices([serviceUUID], function accessServivces(error, services) {
 			if(checkMicroBit(services)) {
 				console.log('Connected to Micro:bit with HTTP Service');
 				
 				var HTTPService = services[0];
-				var readCharacteristics = [urlCharacteristicUUID, requestCharacteristicUUID, responseCharacteristicUUID];
+				var readCharacteristics = [
+					urlCharacteristicUUID, 
+					requestCharacteristicUUID, 
+					responseCharacteristicUUID, 
+					postDataCharacteristicUUID
+				];
 				
 				HTTPService.discoverCharacteristics(readCharacteristics, function accessCharacteristics(error, characteristics) {
 					urlCharacteristic = characteristics[0];
 					requestCharacteristic = characteristics[1];
 					responseCharacteristic = characteristics[2];
+					postDataCharacteristic = characteristics[3];
 					
 					urlCharacteristic.read(readUrlCharacteristic);
 					urlCharacteristic.on('read', onUrlUpdate);
@@ -177,6 +205,10 @@ function connectService(peripheral) {
 					requestCharacteristic.read(readRequestCharacteristic);
 					requestCharacteristic.on('read', onRequestUpdate);
 					requestCharacteristic.notify(true, function(error){});
+					
+					postDataCharacteristic.read(readPostDataCharacteristic);
+					postDataCharacteristic.on('read', onPostDataUpdate);
+					postDataCharacteristic.notify(true, function(error){});
 				});
 			} else {
 				console.log('Connected to unknown device, disconnecting');
