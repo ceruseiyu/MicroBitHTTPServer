@@ -28,8 +28,11 @@ const exampleMacro = {
 	type: 'GET',
 	port: undefined,
 	postData: undefined,
-	runMacro: function(data) {
-		return 'Success';
+	runMacro: function(data, macroParam) {
+		return macroParam;
+	},
+	preMacro: function(options, macroParam) {
+		return options;
 	}
 }
 

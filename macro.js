@@ -39,6 +39,10 @@ function macroBitlyRequest(requestOptions, macro) {
 }
 
 function macroRequest(requestOptions, macro) {
+	if(macro.preMacro !== undefined) {
+		requestOptions = macro.preMacro(requestOptions, macro.param);
+	}
+	
 	var httpData;
 	http.request(requestOptions, function(response) {
 		response.on('data', function receiveData(httpChunk) {
@@ -53,7 +57,7 @@ function macroRequest(requestOptions, macro) {
 			if(httpData.substring(0,9) === "undefined") {
 				httpData = httpData.substring(9);
 			}
-			var responseData = macro.runMacro(httpData);
+			var responseData = macro.runMacro(httpData, macro.param);
 			responseCharacteristic.write(Buffer.from(responseData), true, function(error){});
 		});
 	}).end();
@@ -85,6 +89,7 @@ module.exports.runMacro = function(macroID, param, options) {
 		return;
 	}
 	options.type = macro.type;
+	macro.param = param;
 	
 	if(options.host === 'bit.ly') {
 		macroBitlyRequest(options, macro);
