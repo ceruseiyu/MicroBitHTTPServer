@@ -215,11 +215,12 @@ function startScan(state) {
 	}
 }
 
-module.exports.addMacro = function(macro) {
-	macro.addMacro(macro);
+module.exports.addMacro = function(newMacro) {
+	macro.addMacro(newMacro);
 }
 
 module.exports.startServer = function() {
+	console.log('starting server');
 	noble.on('stateChange', startScan);
 	noble.on('discover', connectService);
 }
