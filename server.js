@@ -21,21 +21,6 @@ var storedPostData = '';
 
 var macroArray = [];
 
-const exampleMacro = {
-	macroID: 0x01,
-	host: undefined,
-	path: undefined,
-	type: 'GET',
-	port: undefined,
-	postData: undefined,
-	runMacro: function(data, macroParam) {
-		return macroParam;
-	},
-	preMacro: function(options, macroParam) {
-		return options;
-	}
-}
-
 function readUrlCharacteristic(error, data) {
 	storedURL = data.toString('utf8');
 };
@@ -230,7 +215,12 @@ function startScan(state) {
 	}
 }
 
-macro.addMacro(exampleMacro);
+module.exports.addMacro = function(macro) {
+	macro.addMacro(macro);
+}
 
-noble.on('stateChange', startScan);
-noble.on('discover', connectService);
+module.exports.startServer = function() {
+	noble.on('stateChange', startScan);
+	noble.on('discover', connectService);
+}
+
