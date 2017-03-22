@@ -35,6 +35,6 @@ module.exports.retrieveFieldData = function(obj, parseParams) {
 	} else {
 		newObj = obj[parseParams[0]];
 		parseParams.shift();
-		return retrieveFieldData(newObj, parseParams);
+		return this.retrieveFieldData(newObj, parseParams);
 	}
 }

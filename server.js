@@ -1,5 +1,6 @@
 var noble = require('noble');
 var http = require('http');
+var querystring = require('querystring');
 //var urlLib = require('url');
 
 var parser = require('./parser');
@@ -19,7 +20,7 @@ var storedURL = '';
 var storedRequest = '';
 var storedPostData = '';
 
-var macroArray = [];
+//var macroArray = [];
 
 function readUrlCharacteristic(error, data) {
 	storedURL = data.toString('utf8');
@@ -48,13 +49,18 @@ function parseSendData(httpData, parseParam) {
 	obj = JSON.parse(httpData);
 	var splitParams = parseParam.split(".");
 	var fieldData = parser.retrieveFieldData(obj, splitParams);
-	console.log(fieldData);
+	console.log("Writing response data: " + fieldData);
 	responseCharacteristic.write(Buffer.from(fieldData), true, function(error){});
 }
 
 function makeBitlyRequest(requestOptions) {
 	var httpData;
-	http.request(requestOptions, function(response) {
+	var bitlyOptions = {
+		host:requestOptions.host, 
+		path:requestOptions.path,
+		port: 80,
+	}
+	http.request(bitlyOptions, function(response) {
 		response.on('data', function receiveData(httpChunk) {
 			httpData += httpChunk;
 		});
@@ -73,6 +79,7 @@ function makeBitlyRequest(requestOptions) {
 function makeRequest(requestOptions) {
 	var httpData;
 	var request = http.request(requestOptions, function(response) {
+		response.setEncoding('utf8');
 		response.on('data', function receiveData(httpChunk) {
 			httpData += httpChunk;
 		});
@@ -88,16 +95,15 @@ function makeRequest(requestOptions) {
 	});
 	
 	if(requestOptions.postData !== undefined) {
-		request.write(postData);
+		request.write(requestOptions.postData);
 	}
 	
 	request.end();
 }
 
 function onRequestUpdate(data, isNotification) {
-	console.log('Request Received');
 	storedRequest = data.toString('utf8');
-	console.log(storedRequest);
+	console.log('Request Received: ' + storedRequest);
 	var rawOptions = parser.parseURL(storedUrl);
 	var requestOptions = {
 		host:rawOptions[0], 
@@ -108,20 +114,21 @@ function onRequestUpdate(data, isNotification) {
 	var requestType = storedRequest.substring(0,1);
 	switch(requestType) {
 		case 'G':
-			requestOptions.type = 'GET';
+			requestOptions.method = 'GET';
 			break;
 		case 'P':
-			requestOptions.type = 'POST';
+			requestOptions.method = 'POST';
 			requestOptions.postData = storedPostData;
 			requestOptions.headers = {
-				'Content-Type': 'application/x-www-form-urlencoded'
-			}
+				'Content-Type': 'application/x-www-form-urlencoded',
+				'Content-Length': Buffer.byteLength(requestOptions.postData)
+			};
 			break;
 		case 'p':
-			requestOptions.type = 'PUT';
+			requestOptions.method = 'PUT';
 			break;
 		case 'D':
-			requestOptions.type = 'DELETE';
+			requestOptions.method = 'DELETE';
 			break;
 		case 'M':
 			macro.setResponseCharacteristic(responseCharacteristic);
@@ -149,7 +156,7 @@ function onPostDataUpdate(data, isNotification) {
 	console.log('Post data updated: ' + data);
 	storedPostData = data.toString('utf8');
 }
-
+ 
 function checkMicroBit(services) {
 	if(services === undefined) {
 		return false;
@@ -190,13 +197,14 @@ function connectService(peripheral) {
 					urlCharacteristic.on('read', onUrlUpdate);
 					urlCharacteristic.notify(true, function(error){});
 					
+					postDataCharacteristic.read(readPostDataCharacteristic);
+					postDataCharacteristic.on('read', onPostDataUpdate);
+					postDataCharacteristic.notify(true, function(error){});
+					
 					requestCharacteristic.read(readRequestCharacteristic);
 					requestCharacteristic.on('read', onRequestUpdate);
 					requestCharacteristic.notify(true, function(error){});
 					
-					postDataCharacteristic.read(readPostDataCharacteristic);
-					postDataCharacteristic.on('read', onPostDataUpdate);
-					postDataCharacteristic.notify(true, function(error){});
 				});
 			} else {
 				console.log('Connected to unknown device, disconnecting');
@@ -220,7 +228,7 @@ module.exports.addMacro = function(newMacro) {
 }
 
 module.exports.startServer = function() {
-	console.log('starting server');
+	console.log('Starting server...');
 	noble.on('stateChange', startScan);
 	noble.on('discover', connectService);
 }
