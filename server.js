@@ -126,6 +126,11 @@ function onRequestUpdate(data, isNotification) {
 			break;
 		case 'p':
 			requestOptions.method = 'PUT';
+			requestOptions.postData = storedPostData;
+			requestOptions.headers = {
+				'Content-Type': 'application/x-www-form-urlencoded',
+				'Content-Length': Buffer.byteLength(requestOptions.postData)
+			};
 			break;
 		case 'D':
 			requestOptions.method = 'DELETE';

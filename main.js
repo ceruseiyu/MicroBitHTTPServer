@@ -12,7 +12,7 @@ const weatherMacro = {
 	macroID: 0x01,
 	host: undefined,
 	path: undefined,
-	type: 'GET',
+	method: 'GET',
 	port: undefined,
 	postData: undefined,
 	

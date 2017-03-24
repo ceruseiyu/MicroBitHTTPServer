@@ -58,6 +58,7 @@ function macroRequest(requestOptions, macro) {
 				httpData = httpData.substring(9);
 			}
 			var responseData = macro.runMacro(httpData, macro.param);
+			console.log("Writing response data: " + responseData);
 			responseCharacteristic.write(Buffer.from(responseData), true, function(error){});
 		});
 	}).end();
@@ -84,11 +85,11 @@ module.exports.runMacro = function(macroID, param, options) {
 		options.port = macro.port;
 	}
 	
-	if(macro.type === undefined) {
-		console.log('No HTTP Request type set for macro');
+	if(macro.method === undefined) {
+		console.log('No HTTP Request method set for macro');
 		return;
 	}
-	options.type = macro.type;
+	options.method = macro.method;
 	macro.param = param;
 	
 	if(options.host === 'bit.ly') {
