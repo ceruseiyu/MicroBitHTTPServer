@@ -188,6 +188,8 @@ function checkMicroBit(services) {
 	return false;
 }
 
+
+
 /* Search for and connect to the Micro:bit, setting up all the
  * required fields and event bindings to allow the rest of
  * the server to work
@@ -216,14 +218,23 @@ function connectService(peripheral) {
 					urlCharacteristic.read(readUrlCharacteristic);
 					urlCharacteristic.on('data', onUrlUpdate);
 					urlCharacteristic.notify(true, function(error){});
+					urlCharacteristic.subscribe(function(error) {
+						console.log('Subscribed to URL characteristic');
+					});
 					
 					postDataCharacteristic.read(readPostDataCharacteristic);
 					postDataCharacteristic.on('data', onPostDataUpdate);
 					postDataCharacteristic.notify(true, function(error){});
+					postDataCharacteristic.subscribe(function(error) {
+						console.log('Subscribed to Post Data characteristic');
+					});
 					
 					requestCharacteristic.read(readRequestCharacteristic);
 					requestCharacteristic.on('data', onRequestUpdate);
 					requestCharacteristic.notify(true, function(error){});
+					requestCharacteristic.subscribe(function(error) {
+						console.log('Subscribed to Request characteristic');
+					});
 					
 				});
 			} else { // Disconnect if no HTTP Service
