@@ -10,6 +10,8 @@ The micro:bit HTTP proxy server is one half of the micro:bit HTTP service, it ru
 
 The server natively supports retrieving elements from JSON files, but can also utilise macros to retrieve data from any given file on the web.
 
+Read more about this project in my [dissertation](http://griffito.info/microbit/report.pdf)
+
 ## Using the server
  1. Install [noble](https://github.com/sandeepmistry/noble)
  2. Clone/download this repository
